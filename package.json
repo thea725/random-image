@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "start": "tauri dev",
+    "dev": "npm run tauri icon logo.png && tauri dev",
+    "build": "npm run tauri icon logo.png && tauri build",
     "tauri": "tauri"
   },
   "devDependencies": {
