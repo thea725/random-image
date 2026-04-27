@@ -16,7 +16,7 @@ A simple desktop application to randomly pick anime images. Built with Tauri for
 Clone this repository:
 
 ```bash
-git clone https://github.com/your-username/random-image.git
+git clone https://github.com/thea725/random-image.git
 cd random-image
 ```
 
