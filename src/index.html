@@ -426,6 +426,43 @@
       const fsOverlay     = document.getElementById('fullscreen-overlay');
       const fsImg         = document.getElementById('fullscreen-img');
 
+      // ── MEMORY CONFIG ──
+      const MAX_HISTORY     = 50;   // entri history maksimal
+      const KEEP_FULLRES    = 5;    // berapa entri terakhir yang menyimpan base64 full-res
+      const THUMB_SIZE      = 72;   // px (sisi terpanjang thumbnail)
+      const THUMB_QUALITY   = 0.45; // JPEG quality untuk thumbnail (0–1)
+
+      // ── COMPRESS TO THUMBNAIL ──
+      // Mengecilkan gambar ke THUMB_SIZE dan encode ulang sebagai JPEG kualitas rendah.
+      // Mengembalikan Promise<string> (data URL JPEG kecil).
+      function compressToThumb(b64) {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            const scale = THUMB_SIZE / Math.max(img.width, img.height);
+            const w = Math.round(img.width  * scale);
+            const h = Math.round(img.height * scale);
+            const canvas = document.createElement('canvas');
+            canvas.width  = w;
+            canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL('image/jpeg', THUMB_QUALITY));
+          };
+          img.onerror = () => resolve(b64); // fallback: pakai aslinya
+          img.src = b64;
+        });
+      }
+
+      // Bebaskan base64 full-res untuk entri di luar jendela KEEP_FULLRES terakhir.
+      function evictOldFullRes() {
+        const cutoff = currentIdx - KEEP_FULLRES;
+        for (let i = 0; i < cutoff; i++) {
+          if (history[i] && history[i].base64) {
+            history[i].base64 = null; // bebaskan memori
+          }
+        }
+      }
+
       // ── FISHER-YATES SHUFFLE ──
       function shuffle(arr) {
         const a = [...arr];
@@ -505,8 +542,15 @@
           rebuildHistoryPanel();
         }
 
-        history.push({ path, base64: null, filename: baseName(path) });
+        history.push({ path, base64: null, thumb: null, filename: baseName(path) });
         currentIdx = history.length - 1;
+
+        // Buang entri tertua jika melebihi batas
+        if (history.length > MAX_HISTORY) {
+          history.shift();
+          currentIdx = history.length - 1;
+          rebuildHistoryPanel();
+        }
 
         updateProgress();
         loadAndRender(currentIdx);
@@ -516,10 +560,13 @@
       function renderFromHistory() {
         const entry = history[currentIdx];
         if (entry.base64) {
+          // Masih ada di memori — tampilkan langsung
           applyImage(entry.base64, entry.filename);
           syncButtons();
           highlightThumb(currentIdx);
+          evictOldFullRes();
         } else {
+          // Full-res sudah di-evict, muat ulang dari disk
           loadAndRender(currentIdx);
         }
       }
@@ -534,8 +581,17 @@
           const entry = history[idx];
           const b64   = await invoke('load_image_base64', { path: entry.path });
           entry.base64 = b64;
+
+          // Buat thumbnail terkompresi jika belum ada
+          if (!entry.thumb) {
+            entry.thumb = await compressToThumb(b64);
+          }
+
           applyImage(b64, entry.filename);
-          addOrUpdateThumb(idx, b64);
+          addOrUpdateThumb(idx, entry.thumb);
+
+          // Bebaskan full-res lama agar tidak menumpuk di RAM
+          evictOldFullRes();
         } catch (e) {
           console.error('Gagal memuat gambar:', e);
           triggerAutoSkip(idx);
@@ -611,7 +667,7 @@
         historyPanel.innerHTML = '<div class="history-label">History</div>';
         [...history].reverse().forEach((entry, ri) => {
           const i = history.length - 1 - ri;
-          if (entry.base64) addOrUpdateThumb(i, entry.base64);
+          if (entry.thumb) addOrUpdateThumb(i, entry.thumb);
         });
       }
 
