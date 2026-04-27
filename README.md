@@ -13,54 +13,49 @@ A simple desktop application to randomly pick anime images. Built with Tauri for
 
 ## 📦 Installation
 
-Clone this repository:
+### Clone this repository:
 
 ```bash
 git clone https://github.com/thea725/random-image.git
 cd random-image
 ```
 
-Install dependencies:
+### Install dependencies:
 
 ```bash
 npm install
 ```
 
-🛠️ Development
-
-Run the app in development mode:
+## 🛠️ Development
+### Run the app in development mode:
 
 ```bash
-npm run tauri dev
+npm run dev
 ```
 
-📦 Build
-
+## 📦 Build
 Build the application for production:
 
 ```bash
-npm run tauri build
+npm run build
 ```
 
-📁 Tech Stack
-Tauri
-Node.js
-JavaScript
-⚠️ Prerequisites
+## 📁 Tech Stack
+- Tauri
+- Node.js
+- JavaScript
 
+## ⚠️ Prerequisites
 Make sure you have the following installed:
-
-Node.js
-Rust (required by Tauri)
-Tauri system dependencies (depending on your OS)
+- Node.js
+- Rust (required by Tauri)
+- Tauri system dependencies (depending on your OS)
 
 You can follow the official Tauri setup guide for detailed instructions.
 
-⭐ Support
-
+## ⭐ Support
 If you find this project useful or interesting, consider giving it a star ⭐
 It helps the project grow and reach more people.
 
-📜 License
-
+## 📜 License
 MIT License
