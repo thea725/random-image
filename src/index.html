@@ -665,8 +665,9 @@
 
       function rebuildHistoryPanel() {
         historyPanel.innerHTML = '<div class="history-label">History</div>';
-        [...history].reverse().forEach((entry, ri) => {
-          const i = history.length - 1 - ri;
+        // Iterasi dari terlama ke terbaru: label.after() selalu menyisipkan di atas,
+        // sehingga yang terakhir diinsert (terbaru) akan berada paling atas. ✓
+        history.forEach((entry, i) => {
           if (entry.thumb) addOrUpdateThumb(i, entry.thumb);
         });
       }
