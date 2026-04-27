@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Random Image Picker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg: #0d0d0f;
+        --surface: #141417;
+        --border: #222228;
+        --accent: #e8ff47;
+        --accent-dim: rgba(232, 255, 71, 0.12);
+        --text: #f0f0f0;
+        --muted: #5a5a6a;
+        --danger: #ff4747;
+        --radius: 10px;
+        --history-w: 88px;
+        --nav-btn-w: 64px;
+      }
+
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        font-family: 'DM Mono', monospace;
+        background: var(--bg);
+        color: var(--text);
+        height: 100vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        user-select: none;
+      }
+
+      /* ── HEADER ── */
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        flex-shrink: 0;
+        gap: 16px;
+      }
+
+      .logo {
+        font-family: 'Syne', sans-serif;
+        font-weight: 800;
+        font-size: 1.05rem;
+        letter-spacing: -0.02em;
+        color: var(--accent);
+        white-space: nowrap;
+      }
+
+      /* Progress bar + counter */
+      .progress-wrap {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        max-width: 480px;
+      }
+
+      .progress-info {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.65rem;
+        color: var(--muted);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .progress-track {
+        height: 3px;
+        background: var(--border);
+        border-radius: 99px;
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: var(--accent);
+        border-radius: 99px;
+        transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        width: 0%;
+      }
+
+      /* Select dir button */
+      #btn-select {
+        padding: 8px 16px;
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text);
+        border-radius: var(--radius);
+        font-family: 'DM Mono', monospace;
+        font-size: 0.72rem;
+        cursor: pointer;
+        transition: border-color 0.2s, color 0.2s;
+        white-space: nowrap;
+        letter-spacing: 0.04em;
+      }
+
+      #btn-select:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+
+      /* ── MAIN LAYOUT ── */
+      .main {
+        flex: 1;
+        display: flex;
+        overflow: hidden;
+        position: relative;
+      }
+
+      /* ── HISTORY SIDEBAR ── */
+      .history-panel {
+        width: var(--history-w);
+        border-right: 1px solid var(--border);
+        background: var(--surface);
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+        overflow-x: hidden;
+        flex-shrink: 0;
+        scrollbar-width: thin;
+        scrollbar-color: var(--border) transparent;
+        padding: 10px 8px;
+        gap: 8px;
+      }
+
+      .history-label {
+        font-size: 0.55rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--muted);
+        text-align: center;
+        padding-bottom: 4px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+
+      .history-thumb {
+        width: 100%;
+        aspect-ratio: 1;
+        border-radius: 6px;
+        overflow: hidden;
+        cursor: pointer;
+        border: 2px solid transparent;
+        transition: border-color 0.2s, opacity 0.2s, transform 0.15s;
+        flex-shrink: 0;
+        background: var(--border);
+        position: relative;
+      }
+
+      .history-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .history-thumb:hover { opacity: 0.85; transform: scale(1.04); }
+      .history-thumb.active { border-color: var(--accent); }
+
+      .history-thumb .thumb-index {
+        position: absolute;
+        bottom: 3px;
+        right: 4px;
+        font-size: 0.5rem;
+        background: rgba(0,0,0,0.7);
+        color: var(--accent);
+        border-radius: 3px;
+        padding: 1px 3px;
+      }
+
+      /* ── VIEWER AREA ── */
+      .viewer-area {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        position: relative;
+        overflow: hidden;
+        background:
+          radial-gradient(ellipse at 30% 50%, rgba(232,255,71,0.03) 0%, transparent 60%),
+          var(--bg);
+      }
+
+      /* Side nav buttons */
+      .nav-btn {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 10;
+        width: var(--nav-btn-w);
+        height: 120px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        border: none;
+        background: transparent;
+        color: var(--muted);
+        transition: color 0.2s, background 0.2s;
+        border-radius: var(--radius);
+      }
+
+      .nav-btn:not(:disabled):hover {
+        color: var(--accent);
+        background: var(--accent-dim);
+      }
+
+      .nav-btn:disabled { opacity: 0.2; cursor: not-allowed; }
+
+      .nav-btn svg { width: 28px; height: 28px; stroke-width: 1.5; }
+
+      #btn-back  { left: 8px; }
+      #btn-next  { right: 8px; }
+
+      /* Image display */
+      .image-wrap {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px calc(var(--nav-btn-w) + 16px);
+        height: 100%;
+        position: relative;
+      }
+
+      #image-viewer {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        border-radius: 8px;
+        display: none;
+        cursor: zoom-in;
+        box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+        transition: opacity 0.25s ease;
+      }
+
+      #image-viewer.loaded { display: block; }
+
+      #placeholder {
+        text-align: center;
+        color: var(--muted);
+        font-size: 0.8rem;
+        letter-spacing: 0.06em;
+        line-height: 2;
+      }
+
+      #placeholder .big-icon {
+        font-size: 3rem;
+        display: block;
+        margin-bottom: 12px;
+        opacity: 0.4;
+      }
+
+      /* filename strip */
+      .filename-strip {
+        position: absolute;
+        bottom: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0,0,0,0.6);
+        backdrop-filter: blur(8px);
+        border: 1px solid var(--border);
+        border-radius: 99px;
+        padding: 4px 14px;
+        font-size: 0.62rem;
+        color: var(--muted);
+        white-space: nowrap;
+        max-width: 60%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+
+      .filename-strip.visible { opacity: 1; }
+
+      /* ── FULLSCREEN OVERLAY ── */
+      .fullscreen-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        background: rgba(0,0,0,0.96);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        cursor: zoom-out;
+        backdrop-filter: blur(4px);
+      }
+
+      .fullscreen-overlay.open {
+        display: flex;
+        animation: fadeIn 0.2s ease;
+      }
+
+      .fullscreen-overlay img {
+        max-width: 95vw;
+        max-height: 95vh;
+        object-fit: contain;
+        border-radius: 6px;
+        box-shadow: 0 0 60px rgba(0,0,0,0.8);
+      }
+
+      .fullscreen-close {
+        position: fixed;
+        top: 16px;
+        right: 20px;
+        font-size: 0.7rem;
+        color: var(--muted);
+        letter-spacing: 0.08em;
+        pointer-events: none;
+        text-transform: uppercase;
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+      }
+
+      /* ── LOADING STATE ── */
+      .skeleton {
+        width: 320px;
+        height: 240px;
+        border-radius: 8px;
+        background: linear-gradient(90deg, var(--border) 25%, #2a2a32 50%, var(--border) 75%);
+        background-size: 200% 100%;
+        animation: shimmer 1.2s infinite;
+      }
+
+      @keyframes shimmer {
+        0%   { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+      }
+    </style>
+  </head>
+  <body>
+
+    <!-- HEADER -->
+    <header>
+      <div class="logo">Image Picker</div>
+      <div class="progress-wrap" id="progress-wrap" style="opacity:0; pointer-events:none;">
+        <div class="progress-info">
+          <span id="progress-text">0 / 0 dilihat</span>
+          <span id="progress-pct">0%</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+      </div>
+      <button id="btn-select">📁 Select Directory</button>
+    </header>
+
+    <!-- MAIN -->
+    <div class="main">
+
+      <!-- HISTORY SIDEBAR -->
+      <div class="history-panel" id="history-panel">
+        <div class="history-label">History</div>
+      </div>
+
+      <!-- VIEWER -->
+      <div class="viewer-area">
+
+        <button class="nav-btn" id="btn-back" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </button>
+
+        <div class="image-wrap">
+          <div id="placeholder">
+            <span class="big-icon">◈</span>
+            Klik "Select Directory" untuk memulai
+          </div>
+          <div class="skeleton" id="skeleton" style="display:none;"></div>
+          <img id="image-viewer" src="" alt="" />
+          <div class="filename-strip" id="filename-strip"></div>
+        </div>
+
+        <button class="nav-btn" id="btn-next" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </button>
+
+      </div>
+    </div>
+
+    <!-- FULLSCREEN -->
+    <div class="fullscreen-overlay" id="fullscreen-overlay">
+      <img id="fullscreen-img" src="" alt="" />
+      <div class="fullscreen-close">ESC / klik untuk tutup</div>
+    </div>
+
+    <script>
+      const invoke = window.__TAURI__.core.invoke;
+      const open   = window.__TAURI__.dialog.open;
+
+      // ── STATE ──
+      let imageList   = [];   // shuffled deck
+      let usedCount   = 0;    // how many cards drawn this cycle
+      let history     = [];   // [{path, base64, filename}]
+      let currentIdx  = -1;
+
+      // ── ELEMENTS ──
+      const btnSelect     = document.getElementById('btn-select');
+      const btnBack       = document.getElementById('btn-back');
+      const btnNext       = document.getElementById('btn-next');
+      const imgViewer     = document.getElementById('image-viewer');
+      const placeholder   = document.getElementById('placeholder');
+      const skeleton      = document.getElementById('skeleton');
+      const filenameStrip = document.getElementById('filename-strip');
+      const historyPanel  = document.getElementById('history-panel');
+      const progressWrap  = document.getElementById('progress-wrap');
+      const progressFill  = document.getElementById('progress-fill');
+      const progressText  = document.getElementById('progress-text');
+      const progressPct   = document.getElementById('progress-pct');
+      const fsOverlay     = document.getElementById('fullscreen-overlay');
+      const fsImg         = document.getElementById('fullscreen-img');
+
+      // ── FISHER-YATES SHUFFLE ──
+      function shuffle(arr) {
+        const a = [...arr];
+        for (let i = a.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+      }
+
+      // Ambil gambar berikutnya dari deck; reshuffle jika habis
+      function drawNext() {
+        if (imageList.length === 0) return null;
+        if (usedCount >= imageList.length) {
+          imageList = shuffle(imageList);
+          usedCount = 0;
+        }
+        return imageList[usedCount++];
+      }
+
+      // ── PROGRESS ──
+      function updateProgress() {
+        const total = imageList.length;
+        if (total === 0) return;
+        const pct = Math.round((usedCount / total) * 100);
+        progressFill.style.width = pct + '%';
+        progressText.textContent = `${usedCount} / ${total} dilihat`;
+        progressPct.textContent  = pct + '%';
+      }
+
+      // ── SELECT DIRECTORY ──
+      btnSelect.addEventListener('click', async () => {
+        try {
+          const selectedPath = await open({ directory: true });
+          if (!selectedPath) return;
+
+          const raw = await invoke('get_images', { dirPath: selectedPath });
+          if (raw.length === 0) {
+            alert('Tidak ada file gambar di folder ini.');
+            return;
+          }
+
+          imageList  = shuffle(raw);
+          usedCount  = 0;
+          history    = [];
+          currentIdx = -1;
+
+          // Reset history panel
+          historyPanel.innerHTML = '<div class="history-label">History</div>';
+
+          progressWrap.style.opacity = '1';
+          progressWrap.style.pointerEvents = 'auto';
+          btnNext.disabled = false;
+          updateProgress();
+          showNextRandom();
+        } catch (e) {
+          console.error('Error selecting directory:', e);
+        }
+      });
+
+      btnNext.addEventListener('click', () => showNextRandom());
+      btnBack.addEventListener('click', () => {
+        if (currentIdx > 0) {
+          currentIdx--;
+          renderFromHistory();
+        }
+      });
+
+      // ── SHOW NEXT ──
+      function showNextRandom() {
+        const path = drawNext();
+        if (!path) return;
+
+        // Truncate forward history if navigated back
+        if (currentIdx < history.length - 1) {
+          history = history.slice(0, currentIdx + 1);
+          rebuildHistoryPanel();
+        }
+
+        history.push({ path, base64: null, filename: baseName(path) });
+        currentIdx = history.length - 1;
+
+        updateProgress();
+        loadAndRender(currentIdx);
+      }
+
+      // ── RENDER FROM HISTORY (back button) ──
+      function renderFromHistory() {
+        const entry = history[currentIdx];
+        if (entry.base64) {
+          applyImage(entry.base64, entry.filename);
+          syncButtons();
+          highlightThumb(currentIdx);
+        } else {
+          loadAndRender(currentIdx);
+        }
+      }
+
+      // ── LOAD IMAGE ──
+      async function loadAndRender(idx) {
+        setLoading(true);
+        syncButtons();
+        highlightThumb(idx);
+
+        try {
+          const entry = history[idx];
+          const b64   = await invoke('load_image_base64', { path: entry.path });
+          entry.base64 = b64;
+          applyImage(b64, entry.filename);
+          addOrUpdateThumb(idx, b64);
+        } catch (e) {
+          console.error('Gagal memuat gambar:', e);
+          triggerAutoSkip(idx);
+        }
+      }
+
+      // ── APPLY IMAGE TO DOM ──
+      function applyImage(b64, filename) {
+        imgViewer.classList.remove('loaded');
+        imgViewer.src = b64;
+        filenameStrip.textContent = filename;
+        setLoading(false);
+      }
+
+      imgViewer.onload = () => {
+        imgViewer.classList.add('loaded');
+        placeholder.style.display = 'none';
+        filenameStrip.classList.add('visible');
+        syncButtons();
+      };
+
+      imgViewer.onerror = () => triggerAutoSkip(currentIdx);
+
+      // ── AUTO SKIP ──
+      function triggerAutoSkip(idx) {
+        const bad = history[idx]?.path;
+        imageList = imageList.filter(p => p !== bad);
+        if (usedCount > imageList.length) usedCount = imageList.length;
+        history.splice(idx, 1);
+        currentIdx = Math.min(idx, history.length - 1);
+
+        rebuildHistoryPanel();
+
+        if (imageList.length === 0) {
+          placeholder.innerHTML = '<span class="big-icon">⚠️</span>Semua gambar rusak atau tidak didukung.';
+          placeholder.style.display = 'block';
+          imgViewer.classList.remove('loaded');
+          btnNext.disabled = true;
+          return;
+        }
+        showNextRandom();
+      }
+
+      // ── HISTORY PANEL ──
+      function addOrUpdateThumb(idx, b64) {
+        const existing = historyPanel.querySelector(`[data-idx="${idx}"]`);
+        if (existing) {
+          existing.querySelector('img').src = b64;
+          return;
+        }
+
+        const thumb = document.createElement('div');
+        thumb.className = 'history-thumb';
+        thumb.dataset.idx = idx;
+        thumb.innerHTML = `
+          <img src="${b64}" alt="" />
+          <span class="thumb-index">${idx + 1}</span>
+        `;
+        thumb.addEventListener('click', () => {
+          currentIdx = idx;
+          renderFromHistory();
+        });
+
+        // Insert at top (newest first) — right after the label
+        const label = historyPanel.querySelector('.history-label');
+        label.after(thumb);
+
+        highlightThumb(currentIdx);
+        thumb.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      function rebuildHistoryPanel() {
+        historyPanel.innerHTML = '<div class="history-label">History</div>';
+        [...history].reverse().forEach((entry, ri) => {
+          const i = history.length - 1 - ri;
+          if (entry.base64) addOrUpdateThumb(i, entry.base64);
+        });
+      }
+
+      function highlightThumb(idx) {
+        historyPanel.querySelectorAll('.history-thumb').forEach(t => {
+          t.classList.toggle('active', +t.dataset.idx === idx);
+        });
+      }
+
+      // ── LOADING STATE ──
+      function setLoading(on) {
+        skeleton.style.display  = on ? 'block' : 'none';
+        if (on) {
+          imgViewer.classList.remove('loaded');
+          placeholder.style.display = 'none';
+          filenameStrip.classList.remove('visible');
+        }
+      }
+
+      // ── SYNC BUTTONS ──
+      function syncButtons() {
+        btnBack.disabled = currentIdx <= 0;
+        btnNext.disabled = imageList.length === 0;
+      }
+
+      // ── FULLSCREEN ──
+      imgViewer.addEventListener('click', () => {
+        if (!imgViewer.src) return;
+        fsImg.src = imgViewer.src;
+        fsOverlay.classList.add('open');
+      });
+
+      fsOverlay.addEventListener('click', () => {
+        fsOverlay.classList.remove('open');
+        fsImg.src = '';
+      });
+
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') fsOverlay.classList.remove('open');
+        if (e.key === 'ArrowRight' && !btnNext.disabled) showNextRandom();
+        if (e.key === 'ArrowLeft'  && !btnBack.disabled) {
+          currentIdx--;
+          renderFromHistory();
+        }
+      });
+
+      // ── UTILITY ──
+      function baseName(path) {
+        return path.split(/[\\/]/).pop();
+      }
+    </script>
+  </body>
+</html>
